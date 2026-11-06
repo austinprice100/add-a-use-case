@@ -1485,10 +1485,13 @@ Details:
 
 **Priority:** Low
 **Frequency of Use:** Rare. Occurs occasionally when a student withdraws from a course section.
-**Business Rules:** BR-student-lifecycle
+**Business Rules:** BR-student-lifecycle, BR-evaluation-active-evaluatee
 
 **Associated Information:**
 - Consequence of the deactivation: The student will no longer be able to log in or submit weekly activity reports and peer evaluations, but the student's account and her previously submitted work are kept in the system. Deactivation will NOT remove the student from the system, and the account can be reactivated in the future (UC-STU-reactivate-student: Reactivate a student). This is distinct from deletion (UC-STU-delete-student: Delete a student), which is a physical, unrecoverable delete. The course admin or instructor shall be able to cancel the use case at any time prior to submitting it.
+- Team membership: The deactivated student stays on her team. Her teammates may evaluate her only for weeks in or before the week in which she was deactivated (BR-evaluation-active-evaluatee).
+- Deactivation record: The system records when the student was deactivated, read from the system's calendar clock, and which course admin or instructor deactivated her.
+- Students deactivated before the deactivation date was recorded: Such a student has no recorded deactivation date, so the week her evaluations stop is unknown. The system refuses new peer evaluations of her, and the course section's peer evaluation report keeps her for every week, so that the team's record is preserved.
 
 **Related Use Cases:** UC-STU-delete-student: Delete a student; UC-STU-reactivate-student: Reactivate a student
 **Assumptions:**
