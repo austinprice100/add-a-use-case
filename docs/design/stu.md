@@ -113,8 +113,8 @@ sequenceDiagram
         C->>S: deactivateStudent(id)
         S->>R: findById [not found → 403]
         S->>S: already disabled? [3a → 409]
-        S->>S: enabled=false, deactivatedAt=LocalDateTime.now(clock), deactivatedBy=caller
-        S->>R: save
+        S->>R: deactivateIfEnabled(id, LocalDateTime.now(clock), caller) [no row updated → 409, 3a2]
+        S->>R: findById (reload her to return)
         C-->>SPA: Result(StudentDto)
         SPA->>I: "student deactivated"; refresh the list (step 6)
     end
