@@ -44,6 +44,9 @@ class StudentIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     EntityManager entityManager;
 
+    @Autowired
+    StudentRepository studentRepository;
+
     String adminToken;
 
     String instructorBillToken;
@@ -222,6 +225,27 @@ class StudentIntegrationTest extends AbstractIntegrationTest {
 
         // Then: the first record stands
         this.entityManager.flush();
+        this.entityManager.clear();
+        Student john = this.entityManager.find(Student.class, 4);
+        assertThat(john.isEnabled()).isFalse();
+        assertThat(john.getDeactivatedBy().getEmail()).isEqualTo("b.gates@abc.edu");
+        assertThat(john.getDeactivatedAt()).isEqualTo(LocalDateTime.of(2023, 8, 20, 23, 30));
+    }
+
+    @Test
+    void testLosingConcurrentDeactivationDoesNotOverwriteTheRecord() throws Exception {
+        // Given: Bill has deactivated John
+        this.mockMvc.perform(put(this.baseUrl + "/students/4/deactivate").header(HttpHeaders.AUTHORIZATION, this.instructorBillToken))
+                .andExpect(jsonPath("$.code").value(StatusCode.SUCCESS));
+
+        // When: Wei's request, which read John as enabled before Bill's committed, reaches its conditional update
+        Instructor wei = this.entityManager.createQuery("select i from Instructor i where i.email = :email", Instructor.class)
+                .setParameter("email", "b.wei@abc.edu")
+                .getSingleResult();
+        int deactivated = this.studentRepository.deactivateIfEnabled(4, LocalDateTime.of(2023, 8, 21, 9, 0), wei);
+
+        // Then: it matches nothing, so the service answers 3a, and Bill's record stands
+        assertThat(deactivated).isZero();
         this.entityManager.clear();
         Student john = this.entityManager.find(Student.class, 4);
         assertThat(john.isEnabled()).isFalse();

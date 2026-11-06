@@ -136,10 +136,16 @@ public class StudentService {
             throw new StudentAlreadyDeactivatedException();
         }
 
-        student.setEnabled(false);
-        student.setDeactivatedAt(LocalDateTime.now(this.clock));
-        student.setDeactivatedBy(this.userUtils.getInstructor());
-        return this.studentRepository.save(student);
+        // The check above answers the common case; the conditional update decides a race. Two callers can both
+        // read her as enabled, but only one update still matches "enabled", so the other gets 3a instead of
+        // overwriting the first deactivation's when and by whom.
+        int deactivated = this.studentRepository.deactivateIfEnabled(
+                studentId, LocalDateTime.now(this.clock), this.userUtils.getInstructor());
+        if (deactivated == 0) {
+            throw new StudentAlreadyDeactivatedException();
+        }
+        return this.studentRepository.findById(studentId)
+                .orElseThrow(() -> new ObjectNotFoundException("student", studentId));
     }
 
     public void deleteStudent(Integer studentId) {

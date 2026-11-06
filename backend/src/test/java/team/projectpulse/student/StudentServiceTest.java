@@ -194,19 +194,44 @@ class StudentServiceTest {
         Clock fixedClock = Clock.fixed(LocalDateTime.of(2023, 8, 20, 23, 30).atZone(ZoneId.of("UTC")).toInstant(), ZoneId.of("UTC"));
         given(this.clock.instant()).willReturn(fixedClock.instant());
         given(this.clock.getZone()).willReturn(fixedClock.getZone());
-        given(this.studentRepository.findById(1)).willReturn(Optional.of(john));
+        Student stored = new Student(john.getUsername(), john.getFirstName(), john.getLastName(), john.getEmail(), john.getPassword(), false, john.getRoles());
+        stored.setDeactivatedAt(LocalDateTime.of(2023, 8, 20, 23, 30));
+        stored.setDeactivatedBy(bill);
+        given(this.studentRepository.findById(1)).willReturn(Optional.of(john), Optional.of(stored));
         given(this.userUtils.getInstructor()).willReturn(bill);
-        given(this.studentRepository.save(john)).willReturn(john);
+        given(this.studentRepository.deactivateIfEnabled(1, LocalDateTime.of(2023, 8, 20, 23, 30), bill)).willReturn(1);
 
         // When
         Student result = this.studentService.deactivateStudent(1);
 
-        // Then
+        // Then: deactivated through the conditional update, and the stored row is returned
+        verify(this.studentRepository).deactivateIfEnabled(1, LocalDateTime.of(2023, 8, 20, 23, 30), bill);
+        verify(this.studentRepository, never()).save(any(Student.class));
         assertThat(result.isEnabled()).isFalse();
         assertThat(result.getDeactivatedAt()).isEqualTo(LocalDateTime.of(2023, 8, 20, 23, 30));
         assertThat(result.getDeactivatedBy()).isSameAs(bill);
         assertThat(result.deactivationWeek()).contains("2023-W33");
-        verify(this.studentRepository, times(1)).save(john);
+    }
+
+    @Test
+    void testDeactivateStudentLosesConcurrentDeactivation() {
+        // Given: John reads as enabled, but another caller deactivates him before this conditional update runs
+        Student john = this.students.get(0);
+        Instructor bill = new Instructor("b.gates@abc.edu", "Bill", "Gates", "b.gates@abc.edu", "123456", true, "instructor");
+        Clock fixedClock = Clock.fixed(LocalDateTime.of(2023, 8, 20, 23, 30).atZone(ZoneId.of("UTC")).toInstant(), ZoneId.of("UTC"));
+        given(this.clock.instant()).willReturn(fixedClock.instant());
+        given(this.clock.getZone()).willReturn(fixedClock.getZone());
+        given(this.studentRepository.findById(1)).willReturn(Optional.of(john));
+        given(this.userUtils.getInstructor()).willReturn(bill);
+        given(this.studentRepository.deactivateIfEnabled(1, LocalDateTime.of(2023, 8, 20, 23, 30), bill)).willReturn(0);
+
+        // When
+        Throwable thrown = catchThrowable(() -> this.studentService.deactivateStudent(1));
+
+        // Then: refused as 3a (409), with nothing written over the first deactivation
+        assertThat(thrown).isInstanceOf(StudentAlreadyDeactivatedException.class)
+                .hasMessage("The student is already deactivated.");
+        verify(this.studentRepository, never()).save(any(Student.class));
     }
 
     @Test
