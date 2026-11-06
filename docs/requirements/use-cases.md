@@ -1530,6 +1530,7 @@ Details:
 
 **Associated Information:**
 - The course admin or instructor shall be able to cancel the use case at any time prior to submitting it.
+- A deactivated student keeps her team assignment (UC-STU-deactivate-student), so reactivation returns her to the same team with no further action.
 
 **Related Use Cases:** UC-STU-delete-student: Delete a student; UC-STU-deactivate-student: Deactivate a student
 **Assumptions:**
