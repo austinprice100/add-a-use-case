@@ -11,6 +11,8 @@ export interface Student {
   sectionName?: string
   teamId?: number
   teamName?: string
+  deactivatedAt?: string | null // Calendar date-time in app.timezone; null while enabled, or when not recorded
+  deactivationWeek?: string | null // e.g. "2023-W33"; null while enabled, or when not recorded
 }
 
 export interface PaginationParams {
@@ -90,6 +92,13 @@ export interface RegistrationParams {
 }
 
 export interface UpdateStudentResponse {
+  flag: boolean
+  code: number
+  message: string
+  data: Student
+}
+
+export interface DeactivateStudentResponse {
   flag: boolean
   code: number
   message: string

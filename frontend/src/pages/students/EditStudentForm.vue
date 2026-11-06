@@ -13,14 +13,12 @@
     <el-form-item label="Username:" prop="username">
       <el-input v-model="studentBeingEdited.username"></el-input>
     </el-form-item>
-    <el-form-item label="Status:" prop="enabled">
-      <el-switch
-        v-model="studentBeingEdited.enabled"
-        inline-prompt
-        active-text="Enabled"
-        inactive-text="Disabled"
-        style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
-      />
+    <el-form-item label="Status:">
+      <!-- 3a: a deactivated student shows her deactivation date in place of the action -->
+      <el-text v-if="isDeactivated" type="danger">Deactivated · {{ deactivationDate }}</el-text>
+      <el-button v-else-if="isLoaded" type="danger" plain @click="confirmDeactivation()">
+        Deactivate
+      </el-button>
     </el-form-item>
     <el-form-item label="First Name:" prop="firstName">
       <el-input v-model="studentBeingEdited.firstName"></el-input>
@@ -42,11 +40,11 @@
 </template>
 
 <script setup lang="ts">
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import type { Student } from '@/apis/student/types'
 import type { FormInstance } from 'element-plus'
-import { findStudentById, updateStudent } from '@/apis/student'
-import { ref, onMounted } from 'vue'
+import { deactivateStudent, findStudentById, updateStudent } from '@/apis/student'
+import { computed, ref, onMounted } from 'vue'
 
 const { studentId } = defineProps(['studentId'])
 const emit = defineEmits(['close-dialog'])
@@ -64,6 +62,9 @@ const studentBeingEdited = ref<Student>({
 
 const studentForm = ref<FormInstance>() // Form reference
 
+// The Status row waits for the student to load, so the Deactivate button never flashes for a deactivated student
+const isLoaded = ref(false)
+
 // Validation rules
 const rules = {
   username: [
@@ -74,7 +75,6 @@ const rules = {
       trigger: 'blur'
     }
   ],
-  enabled: [{ required: true, message: 'Please select the status of the user.', trigger: 'blur' }],
   firstName: [
     { required: true, message: 'Please provide the first name of the user.', trigger: 'blur' }
   ],
@@ -98,6 +98,38 @@ async function loadStudent(studentId: number) {
   studentBeingEdited.value.lastName = result.data.lastName
   studentBeingEdited.value.email = result.data.email
   studentBeingEdited.value.teamName = result.data.teamName
+  studentBeingEdited.value.deactivatedAt = result.data.deactivatedAt
+  isLoaded.value = true
+}
+
+const isDeactivated = computed(() => isLoaded.value && !studentBeingEdited.value.enabled)
+
+// deactivatedAt is already calendar time in app.timezone, so its date part is the date to show
+const deactivationDate = computed(
+  () => studentBeingEdited.value.deactivatedAt?.slice(0, 10) ?? 'date unknown'
+)
+
+async function confirmDeactivation() {
+  const { id, firstName, lastName } = studentBeingEdited.value
+  const name = `${firstName} ${lastName}`
+
+  // Step 4: the consequences, a warning, and a request for confirmation
+  try {
+    await ElMessageBox.confirm(
+      `${name} will no longer be able to log in or submit weekly activity reports and peer evaluations. ` +
+        'Her account and her previously submitted work are kept; this is not a deletion. ' +
+        'She stays on her team, and her teammates can evaluate her only for weeks up to this one.',
+      `Deactivate ${name}?`,
+      { confirmButtonText: 'Deactivate', cancelButtonText: 'Cancel', type: 'warning' }
+    )
+  } catch {
+    return // 5a: cancelled, so no request is sent and the details stay open
+  }
+
+  // Step 6. An error is left to the shared error toast in utils/request.ts
+  await deactivateStudent(id as number)
+  ElMessage.success(`${name} has been deactivated.`)
+  emit('close-dialog') // Students.vue reloads its list when the dialog closes
 }
 
 onMounted(() => {
@@ -110,7 +142,6 @@ async function updateExistingStudent() {
   const updatedStudent: Student = {
     id: studentBeingEdited.value.id,
     username: studentBeingEdited.value.username,
-    enabled: studentBeingEdited.value.enabled,
     firstName: studentBeingEdited.value.firstName,
     lastName: studentBeingEdited.value.lastName,
     email: studentBeingEdited.value.email
