@@ -111,7 +111,7 @@ sequenceDiagram
         SEC->>SEC: ActiveAccountJwtValidator; anyOf(StudentInstructor, StudentCourseOwnership) [3b → 403]
         SEC->>C: deactivateStudent(id)
         C->>S: deactivateStudent(id)
-        S->>R: findById [not found → 404]
+        S->>R: findById [not found → 403]
         S->>S: already disabled? [3a → 409]
         S->>S: enabled=false, deactivatedAt=LocalDateTime.now(clock), deactivatedBy=caller
         S->>R: save
@@ -196,6 +196,8 @@ erDiagram
 | Deactivate, main: course admin not assigned to the course section | integration | 200 (BR-student-lifecycle) |
 | Deactivate, main | unit (`StudentServiceTest`) | sets `enabled`, `deactivatedAt`, and `deactivatedBy` from the `Clock` and `UserUtils` |
 | Deactivate, 3a: already deactivated | unit and integration | 409; all three fields unchanged |
+| Deactivate, 3a2: concurrent deactivation | unit (`StudentServiceTest`) | when the conditional update matches no row, the deactivation is refused with 409 and nothing is saved |
+| Deactivate, 3a2: concurrent deactivation | integration (`StudentIntegrationTest`) | after a first deactivation, a second `deactivateIfEnabled` updates no row, and `enabled`, `deactivatedAt`, and `deactivatedBy` keep the first deactivation's values |
 | Deactivate, 3b: instructor of another course section; the student herself | integration | 403 |
 | Deactivate, unknown student | unit; integration | unit: `ObjectNotFoundException`; integration: 403 (the managers fail closed) |
 | Step 2 for a course admin not assigned to the course section | integration | `GET /students/{studentId}` returns 200 |
@@ -208,6 +210,8 @@ erDiagram
 | `isEvaluableFor` / `isReportedFor` | unit | always true when enabled; true on her deactivation week; false after it; correct across an ISO year boundary (`2026-W53` / `2027-W01`) |
 | UC-EVA-submit-evaluation 5a: legacy row, submit and edit | unit (`EvaluationServiceTest`) | a disabled student with `deactivatedAt = null` can't be evaluated for any week (400) |
 | UC-EVA-section-evaluation-report: legacy row | unit | a disabled student with `deactivatedAt = null` is listed for every week |
+| UC-EVA-section-evaluation-report: malformed week, with a deactivated student | integration (`EvaluationIntegrationTest`) | invalid argument returns 400 (`INVALID_ARGUMENT`) |
+| UC-EVA-section-evaluation-report: malformed week, no deactivated student | integration (`EvaluationIntegrationTest`) | invalid argument returns 400 (`INVALID_ARGUMENT`), the same as when a deactivated student is in the section |
 | Legacy row: DTO | unit (converter) | `enabled=false`, `deactivatedAt = null`, `deactivationWeek = null` |
 | Deactivate, 5a: cancel | **manual, UI only** | dismissing the confirmation sends no request; the student stays enabled; the details stay open |
 | Deactivate, 3a: display | **manual, UI only** | a deactivated student's details show "Deactivated" and her date ("date unknown" for a legacy row) in place of the button |
@@ -218,4 +222,4 @@ erDiagram
 
 - **Reactivation** has no path in the application until UC-STU-reactivate-student is built, and its effect on `deactivated_at` and `deactivated_by` is undecided. Both are recorded as open issues on that use case.
 - **Per-request lookup cost:** one primary-key read per API call. It is negligible at the current scale. Revisit together with TD-jwt-revocation if the load profile changes.
-- **Concurrent deactivation:** two authorized callers confirming at the same moment can both pass the 3a check, and the later one becomes `deactivatedBy`. This is accepted, with no `@Version` or conditional update: the use case is rare, both callers were authorized, and the student ends up deactivated either way.
+- **Concurrent deactivation:** two authorized callers confirming at the same moment can both pass the 3a check. The write is therefore one conditional update, `StudentRepository.deactivateIfEnabled`, which sets `enabled=false`, `deactivatedAt`, and `deactivatedBy` only `where enabled = true`. The first caller's update matches and her record stands; the other's matches no row, and the service answers 3a2 (409) instead of overwriting when and by whom. The service then reloads the student to return her. No `@Version` column is needed.
