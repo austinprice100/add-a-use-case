@@ -66,7 +66,7 @@ class StudentTest {
         Student john = deactivatedAt(null);
 
         assertThat(john.deactivationWeek()).isEmpty();
-        // No new evaluations of her for any week (fail closed), but the report keeps her for every week
+        // No peer evaluation of her is accepted or edited for any week (fail closed), but the report keeps her for every week
         assertThat(john.isEvaluableFor("2023-W01")).isFalse();
         assertThat(john.isEvaluableFor("2099-W01")).isFalse();
         assertThat(john.isReportedFor("2023-W01")).isTrue();
