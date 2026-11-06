@@ -2240,6 +2240,9 @@ Report generating algorithm: N/A
 - **4a. Input validation rule violation:**
   - 4a1. The system alerts the student that an input validation rule is violated and displays the nature and location of the error.
   - 4a2. The student corrects the mistake and returns to step 4 of the normal flow.
+- **5a. The evaluatee's account was deactivated in a week earlier than the week being evaluated, or was deactivated with no recorded date (BR-evaluation-active-evaluatee):**
+  - 5a1. The system refuses the evaluation and names the unmet condition.
+  - 5a2. Use case ends.
 
 **Priority:** High
 **Frequency of Use:** Approximately 35-40 users, 1 usage per week.
