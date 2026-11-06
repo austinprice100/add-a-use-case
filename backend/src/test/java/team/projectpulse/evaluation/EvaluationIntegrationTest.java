@@ -428,6 +428,17 @@ public class EvaluationIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void testWeeklyPeerEvaluationReportWithAMalformedWeekIsABadRequestWithNoDeactivatedStudent() throws Exception {
+        // Given: the seeded section, where every student is enabled, so no week comparison is ever made
+
+        // When and then: still 400, not an empty report
+        this.mockMvc.perform(get(this.baseUrl + "/evaluations/sections/2/week/not-a-week").accept(MediaType.APPLICATION_JSON).header(HttpHeaders.AUTHORIZATION, this.adminBingyangToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.flag").value(false))
+                .andExpect(jsonPath("$.code").value(StatusCode.INVALID_ARGUMENT));
+    }
+
+    @Test
     void testStudentJohnGenerateWeeklyPeerEvaluationForSection() throws Exception {
         this.mockMvc.perform(get(this.baseUrl + "/evaluations/sections/2/week/2023-W31").accept(MediaType.APPLICATION_JSON).header(HttpHeaders.AUTHORIZATION, this.studentJohnToken))
                 .andExpect(jsonPath("$.flag").value(false))

@@ -5,6 +5,7 @@ import team.projectpulse.evaluation.converter.PeerEvaluationToPeerEvaluationDtoC
 import team.projectpulse.evaluation.dto.PeerEvaluationDto;
 import team.projectpulse.system.Result;
 import team.projectpulse.system.StatusCode;
+import team.projectpulse.system.WeekKeys;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -52,6 +53,9 @@ public class EvaluationController {
 
     @GetMapping("/sections/{sectionId}/week/{week}")
     public Result generateWeeklyPeerEvaluationReportForSection(@PathVariable Integer sectionId, @PathVariable String week) {
+        // Checked here, once, rather than only when a deactivated student makes the report compare weeks, so a
+        // malformed week is a 400 whoever is in the section.
+        WeekKeys.requireValid(week);
         WeeklyPeerEvaluationReport report = this.evaluationService.generateWeeklyPeerEvaluationReportForSection(sectionId, week);
         return new Result(true, StatusCode.SUCCESS, "Generate weekly evaluations for section successfully", report);
     }
