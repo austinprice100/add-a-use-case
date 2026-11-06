@@ -2,6 +2,8 @@ package team.projectpulse.student.dto;
 
 import jakarta.validation.constraints.NotEmpty;
 
+import java.time.LocalDateTime;
+
 public record StudentDto(Integer id,
                          @NotEmpty(message = "username is required.")
                          String username,
@@ -16,5 +18,8 @@ public record StudentDto(Integer id,
                          Integer sectionId,
                          String sectionName,
                          Integer teamId,
-                         String teamName) {
+                         String teamName,
+                         // Read-only: null while she is enabled, and for a student disabled before dates were recorded
+                         LocalDateTime deactivatedAt,
+                         String deactivationWeek) {
 }

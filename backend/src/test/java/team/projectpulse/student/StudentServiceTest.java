@@ -5,6 +5,8 @@ import team.projectpulse.instructor.Instructor;
 import team.projectpulse.section.Section;
 import team.projectpulse.section.SectionRepository;
 import team.projectpulse.system.UserUtils;
+import team.projectpulse.system.exception.ObjectNotFoundException;
+import team.projectpulse.system.exception.StudentAlreadyDeactivatedException;
 import team.projectpulse.user.MyUserPrincipal;
 import team.projectpulse.user.userinvitation.UserInvitationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,11 +25,15 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
@@ -45,6 +51,8 @@ class StudentServiceTest {
     PasswordEncoder passwordEncoder;
     @Mock
     UserUtils userUtils;
+    @Mock
+    Clock clock;
 
     @InjectMocks
     private StudentService studentService;
@@ -174,7 +182,67 @@ class StudentServiceTest {
         assertThat(result.getLastName()).isEqualTo(update.getLastName());
         assertThat(result.getEmail()).isEqualTo(update.getEmail());
 //        assertThat(result.getRoles()).isEqualTo(update.getRoles());
-        assertThat(result.isEnabled()).isEqualTo(update.isEnabled());
+        // Not even an instructor changes the enabled status here: that is deactivateStudent's job (UC-STU-deactivate-student)
+        assertThat(result.isEnabled()).isTrue();
+    }
+
+    @Test
+    void testDeactivateStudentSuccess() {
+        // Given
+        Student john = this.students.get(0);
+        Instructor bill = new Instructor("b.gates@abc.edu", "Bill", "Gates", "b.gates@abc.edu", "123456", true, "instructor");
+        Clock fixedClock = Clock.fixed(LocalDateTime.of(2023, 8, 20, 23, 30).atZone(ZoneId.of("UTC")).toInstant(), ZoneId.of("UTC"));
+        given(this.clock.instant()).willReturn(fixedClock.instant());
+        given(this.clock.getZone()).willReturn(fixedClock.getZone());
+        given(this.studentRepository.findById(1)).willReturn(Optional.of(john));
+        given(this.userUtils.getInstructor()).willReturn(bill);
+        given(this.studentRepository.save(john)).willReturn(john);
+
+        // When
+        Student result = this.studentService.deactivateStudent(1);
+
+        // Then
+        assertThat(result.isEnabled()).isFalse();
+        assertThat(result.getDeactivatedAt()).isEqualTo(LocalDateTime.of(2023, 8, 20, 23, 30));
+        assertThat(result.getDeactivatedBy()).isSameAs(bill);
+        assertThat(result.deactivationWeek()).contains("2023-W33");
+        verify(this.studentRepository, times(1)).save(john);
+    }
+
+    @Test
+    void testDeactivateAlreadyDeactivatedStudent() {
+        // Given: John was deactivated before, by someone else, at another time
+        Student john = this.students.get(0);
+        Instructor earlier = new Instructor();
+        LocalDateTime earlierAt = LocalDateTime.of(2023, 8, 1, 9, 0);
+        john.setEnabled(false);
+        john.setDeactivatedAt(earlierAt);
+        john.setDeactivatedBy(earlier);
+        given(this.studentRepository.findById(1)).willReturn(Optional.of(john));
+
+        // When
+        Throwable thrown = catchThrowable(() -> this.studentService.deactivateStudent(1));
+
+        // Then: refused (3a), and the original record is untouched
+        assertThat(thrown).isInstanceOf(StudentAlreadyDeactivatedException.class)
+                .hasMessage("The student is already deactivated.");
+        assertThat(john.isEnabled()).isFalse();
+        assertThat(john.getDeactivatedAt()).isEqualTo(earlierAt);
+        assertThat(john.getDeactivatedBy()).isSameAs(earlier);
+        verify(this.studentRepository, never()).save(any(Student.class));
+    }
+
+    @Test
+    void testDeactivateUnknownStudent() {
+        // Given
+        given(this.studentRepository.findById(999)).willReturn(Optional.empty());
+
+        // When
+        Throwable thrown = catchThrowable(() -> this.studentService.deactivateStudent(999));
+
+        // Then
+        assertThat(thrown).isInstanceOf(ObjectNotFoundException.class);
+        verify(this.studentRepository, never()).save(any(Student.class));
     }
 
     @Test

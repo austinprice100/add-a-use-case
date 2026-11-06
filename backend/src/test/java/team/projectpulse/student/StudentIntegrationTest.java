@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -167,6 +168,97 @@ class StudentIntegrationTest extends AbstractIntegrationTest {
         this.mockMvc.perform(put(this.baseUrl + "/students/9999/deactivate").accept(MediaType.APPLICATION_JSON).header(HttpHeaders.AUTHORIZATION, this.adminToken))
                 .andExpect(jsonPath("$.flag").value(false))
                 .andExpect(jsonPath("$.code").value(StatusCode.FORBIDDEN));
+    }
+
+    @Test
+    void testInstructorOfSectionDeactivatesStudent() throws Exception {
+        // Given: John's work before the deactivation
+        long activities = countJohns("select count(a) from Activity a where a.student.id = 4");
+        long evaluations = countJohns("select count(e) from PeerEvaluation e where e.evaluator.id = 4 or e.evaluatee.id = 4");
+
+        // When: Bill, an instructor of John's course section, deactivates him
+        this.mockMvc.perform(put(this.baseUrl + "/students/4/deactivate").accept(MediaType.APPLICATION_JSON).header(HttpHeaders.AUTHORIZATION, this.instructorBillToken))
+                .andExpect(jsonPath("$.flag").value(true))
+                .andExpect(jsonPath("$.code").value(StatusCode.SUCCESS))
+                .andExpect(jsonPath("$.message").value("Deactivate student successfully"))
+                .andExpect(jsonPath("$.data.id").value(4))
+                .andExpect(jsonPath("$.data.enabled").value(false))
+                .andExpect(jsonPath("$.data.deactivatedAt").value(Matchers.startsWith("2023-08-20T23:30"))) // the dev clock
+                .andExpect(jsonPath("$.data.deactivationWeek").value("2023-W33"))
+                .andExpect(jsonPath("$.data.teamId").value(1)); // She stays on her team
+
+        // Then: the record names Bill, and her submitted work is kept
+        this.entityManager.flush();
+        this.entityManager.clear();
+        Student john = this.entityManager.find(Student.class, 4);
+        assertThat(john.isEnabled()).isFalse();
+        assertThat(john.getDeactivatedBy().getEmail()).isEqualTo("b.gates@abc.edu");
+        assertThat(john.getTeam().getTeamId()).isEqualTo(1);
+        assertThat(countJohns("select count(a) from Activity a where a.student.id = 4")).isEqualTo(activities);
+        assertThat(countJohns("select count(e) from PeerEvaluation e where e.evaluator.id = 4 or e.evaluatee.id = 4")).isEqualTo(evaluations);
+    }
+
+    @Test
+    void testCourseAdminNotAssignedToSectionDeactivatesStudent() throws Exception {
+        unassignWeiFromJohnsSection();
+
+        this.mockMvc.perform(put(this.baseUrl + "/students/4/deactivate").accept(MediaType.APPLICATION_JSON).header(HttpHeaders.AUTHORIZATION, this.adminToken))
+                .andExpect(jsonPath("$.flag").value(true))
+                .andExpect(jsonPath("$.code").value(StatusCode.SUCCESS))
+                .andExpect(jsonPath("$.data.enabled").value(false));
+    }
+
+    @Test
+    void testDeactivateAlreadyDeactivatedStudent() throws Exception {
+        // Given: Bill has deactivated John
+        this.mockMvc.perform(put(this.baseUrl + "/students/4/deactivate").header(HttpHeaders.AUTHORIZATION, this.instructorBillToken))
+                .andExpect(jsonPath("$.code").value(StatusCode.SUCCESS));
+
+        // When: Wei asks again (3a)
+        this.mockMvc.perform(put(this.baseUrl + "/students/4/deactivate").accept(MediaType.APPLICATION_JSON).header(HttpHeaders.AUTHORIZATION, this.adminToken))
+                .andExpect(jsonPath("$.flag").value(false))
+                .andExpect(jsonPath("$.code").value(StatusCode.CONFLICT))
+                .andExpect(jsonPath("$.message").value("The student is already deactivated."));
+
+        // Then: the first record stands
+        this.entityManager.flush();
+        this.entityManager.clear();
+        Student john = this.entityManager.find(Student.class, 4);
+        assertThat(john.isEnabled()).isFalse();
+        assertThat(john.getDeactivatedBy().getEmail()).isEqualTo("b.gates@abc.edu");
+        assertThat(john.getDeactivatedAt()).isEqualTo(LocalDateTime.of(2023, 8, 20, 23, 30));
+    }
+
+    @Test
+    void testDeactivatedStudentsTokenIsRefusedOnHerNextRequest() throws Exception {
+        // Given: John is logged in, and Bill deactivates him (6a)
+        this.mockMvc.perform(put(this.baseUrl + "/students/4/deactivate").header(HttpHeaders.AUTHORIZATION, this.instructorBillToken))
+                .andExpect(jsonPath("$.code").value(StatusCode.SUCCESS));
+
+        // When and then: his still-unexpired token is refused
+        this.mockMvc.perform(get(this.baseUrl + "/students/4").accept(MediaType.APPLICATION_JSON).header(HttpHeaders.AUTHORIZATION, this.studentJohnToken))
+                .andExpect(jsonPath("$.flag").value(false))
+                .andExpect(jsonPath("$.code").value(StatusCode.UNAUTHORIZED));
+    }
+
+    @Test
+    void testInstructorUpdateIgnoresEnabled() throws Exception {
+        Map<String, Object> studentDto = new HashMap<>();
+        studentDto.put("username", "j.smith@abc.edu");
+        studentDto.put("firstName", "John");
+        studentDto.put("lastName", "Smith");
+        studentDto.put("email", "j.smith@abc.edu");
+        studentDto.put("enabled", false); // The generic update no longer changes the enabled status, for anyone
+
+        this.mockMvc.perform(put(this.baseUrl + "/students/4").contentType(MediaType.APPLICATION_JSON).content(this.jsonMapper.writeValueAsString(studentDto)).accept(MediaType.APPLICATION_JSON).header(HttpHeaders.AUTHORIZATION, this.instructorBillToken))
+                .andExpect(jsonPath("$.flag").value(true))
+                .andExpect(jsonPath("$.code").value(StatusCode.SUCCESS))
+                .andExpect(jsonPath("$.data.enabled").value(true))
+                .andExpect(jsonPath("$.data.deactivatedAt").value(Matchers.nullValue()));
+    }
+
+    private long countJohns(String jpql) {
+        return this.entityManager.createQuery(jpql, Long.class).getSingleResult();
     }
 
     private void unassignWeiFromJohnsSection() {
