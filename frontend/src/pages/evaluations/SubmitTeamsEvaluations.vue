@@ -182,7 +182,15 @@ onMounted(async () => {
 async function loadStudents() {
   // On the back end, the page number starts from 0, so subtract 1 here
   const result: FindStudentByTeamIdResponse = await findStudentsByTeamId(teamId.value)
-  students.value = result.data
+  students.value = result.data.filter((student) => isEvaluableFor(student, previousWeek.value))
+}
+
+// A deactivated teammate can be evaluated only for weeks up to her deactivation week, and never when that week is
+// unknown (BR-evaluation-active-evaluatee). Omitting her here only spares a refusal: the server enforces the rule.
+// Week keys are zero-padded ISO keys (YYYY-Www), so comparing them as strings orders them correctly.
+function isEvaluableFor(student: Student, week: string): boolean {
+  if (student.enabled) return true
+  return !!student.deactivationWeek && student.deactivationWeek >= week
 }
 
 // Load criteria information
