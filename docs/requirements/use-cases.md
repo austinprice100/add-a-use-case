@@ -1534,6 +1534,8 @@ Details:
 **Related Use Cases:** UC-STU-delete-student: Delete a student; UC-STU-deactivate-student: Deactivate a student
 **Assumptions:**
 **Open Issues:**
+- Until this use case is built, a deactivated student cannot be reactivated from the application: the student status switch on the edit-student form was removed with UC-STU-deactivate-student, which made deactivation a dedicated action.
+- What reactivation does to the recorded deactivation date and the record of who deactivated the student (UC-STU-deactivate-student, Associated Information) is undecided.
 
 ## **Instructor**
 
