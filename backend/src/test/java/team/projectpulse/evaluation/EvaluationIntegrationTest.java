@@ -6,6 +6,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import team.projectpulse.AbstractIntegrationTest;
 import team.projectpulse.evaluation.dto.PeerEvaluationDto;
 import team.projectpulse.evaluation.dto.RatingDto;
+import team.projectpulse.student.Student;
 import team.projectpulse.system.StatusCode;
 import org.hamcrest.Matchers;
 import org.json.JSONObject;
@@ -24,6 +25,7 @@ import org.springframework.util.MultiValueMap;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 
@@ -33,6 +35,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @DisplayName("Integration tests for Evaluation API endpoints")
 public class EvaluationIntegrationTest extends AbstractIntegrationTest {
@@ -407,6 +410,21 @@ public class EvaluationIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.data.peerEvaluationAverages[0].lastName").value("Smith"))
                 .andExpect(jsonPath("$.data.peerEvaluationAverages[0].averageTotalScore").value(Matchers.closeTo(51.33, 0.01)))
                 .andExpect(jsonPath("$.data.studentsMissingPeerEvaluations").doesNotExist()); // Now GET /sections/{sectionId}/submission-status
+    }
+
+    @Test
+    void testWeeklyPeerEvaluationReportWithAMalformedWeekIsABadRequest() throws Exception {
+        // Given: a deactivated student on a team, so the report has to compare the week to her deactivation week
+        Student jerry = this.entityManager.createQuery("select s from Student s where s.email = 'j.moon@abc.edu'", Student.class).getSingleResult();
+        jerry.setEnabled(false);
+        jerry.setDeactivatedAt(LocalDateTime.of(2023, 8, 2, 10, 0));
+        this.entityManager.flush();
+
+        // When and then: 400, not 500
+        this.mockMvc.perform(get(this.baseUrl + "/evaluations/sections/2/week/not-a-week").accept(MediaType.APPLICATION_JSON).header(HttpHeaders.AUTHORIZATION, this.adminBingyangToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.flag").value(false))
+                .andExpect(jsonPath("$.code").value(StatusCode.INVALID_ARGUMENT));
     }
 
     @Test
