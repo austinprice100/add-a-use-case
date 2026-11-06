@@ -1473,6 +1473,16 @@ Details:
 7. Use case ends.
 
 **Extensions:**
+- **3a. The student is already deactivated:**
+  - 3a1. In place of the option to deactivate, the system shows that the student is deactivated and the date of her deactivation, or that the date is unknown.
+  - 3a2. If a request to deactivate her reaches the system anyway, the system refuses it and alerts the course admin or instructor that the student is already deactivated. Use case ends.
+- **3b. The course admin or instructor is not authorized to deactivate this student:**
+  - 3b1. If the course admin or instructor is neither the course admin of the student's course nor an instructor assigned to her course section, the system refuses the deactivation (BR-student-lifecycle). Use case ends.
+- **5a. The course admin or instructor cancels instead of confirming:**
+  - 5a1. The system makes no change to the student's account and returns to the student's details (step 2). Use case ends.
+- **6a. The student is logged in when she is deactivated:**
+  - 6a1. The system refuses the student's next request (FR-SEC-active-account) and returns her to the login page.
+
 **Priority:** Low
 **Frequency of Use:** Rare. Occurs occasionally when a student withdraws from a course section.
 **Business Rules:** BR-student-lifecycle
