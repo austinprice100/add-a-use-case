@@ -1,6 +1,6 @@
 # Student (STU) Design
 
-> Realizes: UC-STU-deactivate-student
+> Realizes: UC-STU-deactivate-student; changes UC-EVA-submit-evaluation (extension 5a) and UC-EVA-section-evaluation-report under BR-evaluation-active-evaluatee, which have no area design doc yet
 > Depends on: FR-SEC-active-account, BR-student-lifecycle, BR-evaluation-active-evaluatee, BR-evaluation-submission-window, BR-evaluation-editable-until-close, BR-submission-owed, BR-section-scoped-access, BR-role-based-access
 > See: [use cases](../requirements/use-cases.md#student), [SRS security requirements](../requirements/software-requirements-specification.md#security-and-authorization-requirements), [architectural-design.md](architectural-design.md#building-block-view) (foundation component view, Crosscutting Concepts)
 > Designed against `main` at `59f0267` (2026-11-06).
@@ -191,12 +191,12 @@ erDiagram
 | Deactivate, unknown student | unit | `ObjectNotFoundException` |
 | Deactivate, 6a: logged in when deactivated | integration | a JWT issued before the deactivation gets 401 on a protected route; logging in with her password then gets 401 |
 | Generic update ignores `enabled` | integration | an instructor's `PUT /students/{id}` with `enabled=false` leaves her enabled |
-| BR-evaluation-active-evaluatee: submit | unit (`EvaluationServiceTest`) | evaluating a deactivated teammate is allowed for a week on or before her deactivation week and refused with 400 after it |
-| BR-evaluation-active-evaluatee: edit | unit | editing an evaluation of her is refused after her deactivation week |
-| BR-evaluation-active-evaluatee: section report | unit | a deactivated student is listed for weeks on or before her deactivation week and omitted after it |
+| UC-EVA-submit-evaluation 5a: submit | unit (`EvaluationServiceTest`) | evaluating a deactivated teammate is allowed for a week on or before her deactivation week and refused with 400 after it |
+| UC-EVA-submit-evaluation 5a: edit (re-submit) | unit | editing an evaluation of her is refused after her deactivation week |
+| UC-EVA-section-evaluation-report: deactivated student | unit | a deactivated student is listed for weeks on or before her deactivation week and omitted after it |
 | `isEvaluableFor` / `isReportedFor` | unit | always true when enabled; true on her deactivation week; false after it; correct across an ISO year boundary (`2026-W53` / `2027-W01`) |
-| Legacy row: submit and edit | unit (`EvaluationServiceTest`) | a disabled student with `deactivatedAt = null` can't be evaluated for any week (400) |
-| Legacy row: section report | unit | a disabled student with `deactivatedAt = null` is listed for every week |
+| UC-EVA-submit-evaluation 5a: legacy row, submit and edit | unit (`EvaluationServiceTest`) | a disabled student with `deactivatedAt = null` can't be evaluated for any week (400) |
+| UC-EVA-section-evaluation-report: legacy row | unit | a disabled student with `deactivatedAt = null` is listed for every week |
 | Legacy row: DTO | unit (converter) | `enabled=false`, `deactivatedAt = null`, `deactivationWeek = null` |
 | Deactivate, 5a: cancel | **manual, UI only** | dismissing the confirmation sends no request; the student stays enabled; the details stay open |
 | Deactivate, 3a: display | **manual, UI only** | a deactivated student's details show "Deactivated" and her date ("date unknown" for a legacy row) in place of the button |
