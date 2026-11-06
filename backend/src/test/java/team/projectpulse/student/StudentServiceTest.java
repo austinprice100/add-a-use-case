@@ -194,23 +194,17 @@ class StudentServiceTest {
         Clock fixedClock = Clock.fixed(LocalDateTime.of(2023, 8, 20, 23, 30).atZone(ZoneId.of("UTC")).toInstant(), ZoneId.of("UTC"));
         given(this.clock.instant()).willReturn(fixedClock.instant());
         given(this.clock.getZone()).willReturn(fixedClock.getZone());
-        Student stored = new Student(john.getUsername(), john.getFirstName(), john.getLastName(), john.getEmail(), john.getPassword(), false, john.getRoles());
-        stored.setDeactivatedAt(LocalDateTime.of(2023, 8, 20, 23, 30));
-        stored.setDeactivatedBy(bill);
-        given(this.studentRepository.findById(1)).willReturn(Optional.of(john), Optional.of(stored));
+        given(this.studentRepository.findById(1)).willReturn(Optional.of(john));
         given(this.userUtils.getInstructor()).willReturn(bill);
         given(this.studentRepository.deactivateIfEnabled(1, LocalDateTime.of(2023, 8, 20, 23, 30), bill)).willReturn(1);
 
         // When
-        Student result = this.studentService.deactivateStudent(1);
+        this.studentService.deactivateStudent(1);
 
-        // Then: deactivated through the conditional update, and the stored row is returned
+        // Then: deactivated through the conditional update, stamped with the Clock's time and the calling
+        // instructor. What is stored is checked against the database in StudentIntegrationTest.
         verify(this.studentRepository).deactivateIfEnabled(1, LocalDateTime.of(2023, 8, 20, 23, 30), bill);
         verify(this.studentRepository, never()).save(any(Student.class));
-        assertThat(result.isEnabled()).isFalse();
-        assertThat(result.getDeactivatedAt()).isEqualTo(LocalDateTime.of(2023, 8, 20, 23, 30));
-        assertThat(result.getDeactivatedBy()).isSameAs(bill);
-        assertThat(result.deactivationWeek()).contains("2023-W33");
     }
 
     @Test
