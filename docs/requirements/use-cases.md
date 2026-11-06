@@ -1473,12 +1473,25 @@ Details:
 7. Use case ends.
 
 **Extensions:**
+- **3a. The student is already deactivated:**
+  - 3a1. In place of the option to deactivate, the system shows that the student is deactivated and the date of her deactivation, or that the date is unknown.
+  - 3a2. If a request to deactivate her reaches the system anyway, the system refuses it and alerts the course admin or instructor that the student is already deactivated. Use case ends.
+- **3b. The course admin or instructor is not authorized to deactivate this student:**
+  - 3b1. If the course admin or instructor is neither the course admin of the student's course nor an instructor assigned to her course section, the system refuses the deactivation (BR-student-lifecycle). Use case ends.
+- **5a. The course admin or instructor cancels instead of confirming:**
+  - 5a1. The system makes no change to the student's account and returns to the student's details (step 2). Use case ends.
+- **6a. The student is logged in when she is deactivated:**
+  - 6a1. The system refuses the student's next request (FR-SEC-active-account) and returns her to the login page.
+
 **Priority:** Low
 **Frequency of Use:** Rare. Occurs occasionally when a student withdraws from a course section.
-**Business Rules:** BR-student-lifecycle
+**Business Rules:** BR-student-lifecycle, BR-evaluation-active-evaluatee
 
 **Associated Information:**
 - Consequence of the deactivation: The student will no longer be able to log in or submit weekly activity reports and peer evaluations, but the student's account and her previously submitted work are kept in the system. Deactivation will NOT remove the student from the system, and the account can be reactivated in the future (UC-STU-reactivate-student: Reactivate a student). This is distinct from deletion (UC-STU-delete-student: Delete a student), which is a physical, unrecoverable delete. The course admin or instructor shall be able to cancel the use case at any time prior to submitting it.
+- Team membership: The deactivated student stays on her team. Her teammates may evaluate her only for weeks in or before the week in which she was deactivated (BR-evaluation-active-evaluatee).
+- Deactivation record: The system records the date and time the student was deactivated, in the same calendar time it uses for active weeks, and which course admin or instructor deactivated her.
+- Students deactivated before the system began recording deactivation dates: Such a student has no recorded deactivation date, so the week her evaluations stop is unknown. The system refuses new peer evaluations of her, and the course section's peer evaluation report keeps her for every week, so that the team's record is preserved.
 
 **Related Use Cases:** UC-STU-delete-student: Delete a student; UC-STU-reactivate-student: Reactivate a student
 **Assumptions:**
@@ -1521,6 +1534,8 @@ Details:
 **Related Use Cases:** UC-STU-delete-student: Delete a student; UC-STU-deactivate-student: Deactivate a student
 **Assumptions:**
 **Open Issues:**
+- Until this use case is built, a deactivated student cannot be reactivated from the application: the student status switch on the edit-student form was removed with UC-STU-deactivate-student, which made deactivation a dedicated action.
+- What reactivation does to the recorded deactivation date and the record of who deactivated the student (UC-STU-deactivate-student, Associated Information) is undecided.
 
 ## **Instructor**
 
@@ -2225,10 +2240,13 @@ Report generating algorithm: N/A
 - **4a. Input validation rule violation:**
   - 4a1. The system alerts the student that an input validation rule is violated and displays the nature and location of the error.
   - 4a2. The student corrects the mistake and returns to step 4 of the normal flow.
+- **5a. The evaluatee's account was deactivated in a week earlier than the week being evaluated, or was deactivated with no recorded date (BR-evaluation-active-evaluatee):**
+  - 5a1. The system refuses the evaluation and names the unmet condition.
+  - 5a2. Use case ends.
 
 **Priority:** High
 **Frequency of Use:** Approximately 35-40 users, 1 usage per week.
-**Business Rules:** BR-team-scoped-access (the student evaluates the members of a team she belongs to, and no other team), BR-team-assignment-required (only a student assigned to a team submits one), BR-active-weeks, BR-evaluation-editable-until-close, BR-evaluation-submission-window, BR-evaluation-private-comment
+**Business Rules:** BR-team-scoped-access (the student evaluates the members of a team she belongs to, and no other team), BR-team-assignment-required (only a student assigned to a team submits one), BR-active-weeks, BR-evaluation-editable-until-close, BR-evaluation-submission-window, BR-evaluation-private-comment, BR-evaluation-active-evaluatee (a teammate whose account is deactivated is evaluated only up to her deactivation week)
 
 **Associated Information:**
 
@@ -2343,7 +2361,7 @@ Report generating algorithm: For each individual criterion score (e.g., Quality 
 
 **Priority:** High
 **Frequency of Use:** Approximately 2 users, average of 1 usage per week.
-**Business Rules:** BR-section-scoped-access (the instructor may generate the report only for a course section she is assigned to), BR-evaluation-private-comment, BR-submission-owed (who has not turned in the peer evaluation)
+**Business Rules:** BR-section-scoped-access (the instructor may generate the report only for a course section she is assigned to), BR-evaluation-private-comment, BR-submission-owed (who has not turned in the peer evaluation), BR-evaluation-active-evaluatee (which weeks a deactivated student is shown for)
 
 **Associated Information:**
 
