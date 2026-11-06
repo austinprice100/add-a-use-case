@@ -198,10 +198,10 @@ erDiagram
 | Legacy row: submit and edit | unit (`EvaluationServiceTest`) | a disabled student with `deactivatedAt = null` can't be evaluated for any week (400) |
 | Legacy row: section report | unit | a disabled student with `deactivatedAt = null` is listed for every week |
 | Legacy row: DTO | unit (converter) | `enabled=false`, `deactivatedAt = null`, `deactivationWeek = null` |
-| Deactivate, 5a: cancel | **manual, UI-only** | dismissing the confirmation sends no request; the student stays enabled; the details stay open |
-| Deactivate, 3a: display | **manual, UI-only** | a deactivated student's details show "Deactivated" and her date ("date unknown" for a legacy row) in place of the button |
+| Deactivate, 5a: cancel | **manual, UI only** | dismissing the confirmation sends no request; the student stays enabled; the details stay open |
+| Deactivate, 3a: display | **manual, UI only** | a deactivated student's details show "Deactivated" and her date ("date unknown" for a legacy row) in place of the button |
 
-5a and the 3a display are UI-only. These pages have no frontend automated tests, so both are checked by hand, and the build pull request carries a screenshot of the confirmation dialog. The server side of 3a is the 409 row.
+5a and the 3a display are UI only. These pages have no frontend automated tests, so both are checked by hand, and the build pull request carries a screenshot of the confirmation dialog. The server side of 3a is the 409 row.
 
 ## Open questions / risks
 
